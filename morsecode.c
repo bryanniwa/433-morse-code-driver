@@ -2,25 +2,33 @@
 #include <linux/miscdevice.h> // for misc-driver calls.
 #include <linux/fs.h>
 #include <linux/delay.h>
+#include <linux/uaccess.h>
 // #error Are we building this?
 
-#define MY_DEVICE_FILE "morsecode"
+#define MY_DEVICE_FILE "morse-code"
+#define DOT 200
+#define DASH DOT*3
+
+/******************************************************
+ * LED
+ ******************************************************/
+#include <linux/leds.h>
+
+DEFINE_LED_TRIGGER(morse_code_trigger);
+
+static void led_register(void)
+{
+	led_trigger_register_simple("morse-code", &morse_code_trigger);
+}
+
+static void led_unregister(void)
+{
+	led_trigger_unregister_simple(morse_code_trigger);
+}
 
 /******************************************************
  * Callbacks
  ******************************************************/
-static int my_open(struct inode *inode, struct file *file)
-{
-	printk(KERN_INFO "morsecode: In my_open()\n");
-	return 0; // Success
-}
-
-static int my_close(struct inode *inode, struct file *file)
-{
-	printk(KERN_INFO "morsecode: In my_close()\n");
-	return 0; // Success
-}
-
 static ssize_t my_read(struct file *file,
 					   char *buff, size_t count, loff_t *ppos)
 {
@@ -31,16 +39,24 @@ static ssize_t my_read(struct file *file,
 static ssize_t my_write(struct file *file,
 						const char *buff, size_t count, loff_t *ppos)
 {
-	printk(KERN_INFO "morsecode: In my_write()\n");
-	// Return # bytes actually written.
-	// Return count here just to make it not call us again!
-	return count;
-}
+	int buf_index;
 
-static long my_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
-{
-	printk(KERN_INFO "morsecode: In my_unlocked_ioctl()\n");
-	return 0; // Success
+	for (buf_index = 0; buf_index < count; buf_index++) {
+		char c;
+		if (copy_from_user(&c, &buff[buf_index], sizeof(c))) {
+			return -EFAULT;
+		}
+
+		if (c < 'A' || (c > 'Z' && c < 'a') || (c > 'z')) {
+			continue;
+		}
+
+		// TODO: Remove this before final submission
+		printk(KERN_INFO "%c\n", c);
+	}
+	// Just return count for now to exit nicely
+	// TODO: make this return the actual number of bytes written
+	return count;
 }
 
 /******************************************************
@@ -49,11 +65,9 @@ static long my_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned long
 // Callbacks:  (structure defined in /linux/fs.h)
 struct file_operations my_fops = {
 	.owner = THIS_MODULE,
-	.open = my_open,
-	.release = my_close,
 	.read = my_read,
-	.write = my_write,
-	.unlocked_ioctl = my_unlocked_ioctl};
+	.write = my_write
+};
 
 // Character Device info for the Kernel:
 static struct miscdevice my_miscdevice = {
@@ -73,6 +87,9 @@ static int __init my_init(void)
 	// Register as a misc driver:
 	ret = misc_register(&my_miscdevice);
 
+	// Register our LED trigger
+	led_register();
+
 	return ret;
 }
 
@@ -82,6 +99,9 @@ static void __exit my_exit(void)
 
 	// Unregister misc driver
 	misc_deregister(&my_miscdevice);
+
+	// Unregister LED trigger
+	led_unregister();
 }
 
 module_init(my_init);
