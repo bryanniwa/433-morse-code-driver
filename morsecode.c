@@ -3,6 +3,7 @@
 #include <linux/fs.h>
 #include <linux/delay.h>
 #include <linux/uaccess.h>
+#include <stdbool.h>
 // #error Are we building this?
 
 #define MY_DEVICE_FILE "morse-code"
@@ -27,6 +28,62 @@ static void led_unregister(void)
 }
 
 /******************************************************
+ * Helpers
+ ******************************************************/
+static int get_start_index(const char* buff, size_t size)
+{
+	int start = 0;
+	while (start < size) {
+		char c;
+		if (copy_from_user(&c, &buff[start], sizeof(c))) {
+			return -EFAULT;
+		}
+
+		if (c == ' ' || c == '\n') {
+			start++;
+		} else {
+			break;
+		}
+	}
+	return start;
+}
+
+static int get_end_index(const char* buff, size_t size)
+{
+	int end = size-1;
+	while (end > 0) {
+		char c;
+		if (copy_from_user(&c, &buff[end], sizeof(c))) {
+			return -EFAULT;
+		}
+
+		if (c == ' ' || c == '\n') {
+			end--;
+		} else {
+			break;
+		}
+	}
+	return end;
+}
+
+static char get_upper(char c)
+{
+	if (c >= 65 && c <= 90) {
+		return c-32;
+	}
+	return c;
+}
+
+static void output_space(void)
+{
+	printk(KERN_INFO "\n");
+}
+
+static void output_letter(char c)
+{
+	printk(KERN_INFO "%c\n", c);
+}
+/******************************************************
  * Callbacks
  ******************************************************/
 static ssize_t my_read(struct file *file,
@@ -39,20 +96,35 @@ static ssize_t my_read(struct file *file,
 static ssize_t my_write(struct file *file,
 						const char *buff, size_t count, loff_t *ppos)
 {
-	int buf_index;
+	int buff_index;
+	int end;
+	bool space_waiting;
 
-	for (buf_index = 0; buf_index < count; buf_index++) {
+	buff_index = get_start_index(buff, count);
+	end = get_end_index(buff, count);
+	space_waiting = false;
+
+	for (buff_index; buff_index <= end; buff_index++) {
 		char c;
-		if (copy_from_user(&c, &buff[buf_index], sizeof(c))) {
+		if (copy_from_user(&c, &buff[buff_index], sizeof(c))) {
 			return -EFAULT;
 		}
 
-		if (c < 'A' || (c > 'Z' && c < 'a') || (c > 'z')) {
+		if ((c < 'A' || (c > 'Z' && c < 'a') || (c > 'z')) && c != ' ') {
 			continue;
 		}
 
-		// TODO: Remove this before final submission
-		printk(KERN_INFO "%c\n", c);
+		if (c == ' ') {
+			space_waiting = true;
+			continue;
+		}
+
+		if (space_waiting) {
+			output_space();
+			space_waiting = false;
+		}
+
+		output_letter(get_upper(c));
 	}
 	// Just return count for now to exit nicely
 	// TODO: make this return the actual number of bytes written
