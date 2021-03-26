@@ -57,6 +57,22 @@ static void led_unregister(void)
 	led_trigger_unregister_simple(morse_code_trigger);
 }
 
+static void flash_dot(void)
+{
+	led_trigger_event(morse_code_trigger, LED_FULL);
+	msleep(DOT);
+	led_trigger_event(morse_code_trigger, LED_OFF);
+	msleep(DOT);
+}
+
+static void flash_dash(void)
+{
+	led_trigger_event(morse_code_trigger, LED_FULL);
+	msleep(DASH);
+	led_trigger_event(morse_code_trigger, LED_OFF);
+	msleep(DOT);
+}
+
 /******************************************************
  * Helpers
  ******************************************************/
@@ -110,25 +126,10 @@ static void output_space(void)
 	msleep(SPACE);
 }
 
-static void flash_dot(void)
-{
-	led_trigger_event(morse_code_trigger, LED_FULL);
-	msleep(DOT);
-	led_trigger_event(morse_code_trigger, LED_OFF);
-	msleep(DOT);
-}
-
-static void flash_dash(void)
-{
-	led_trigger_event(morse_code_trigger, LED_FULL);
-	msleep(DASH);
-	led_trigger_event(morse_code_trigger, LED_OFF);
-	msleep(DOT);
-}
-
 static void output_letter(char c)
 {
 	// TODO: prevent extra dot time at the end of a word
+	// TODO: implement break after a character
 	unsigned short letter_code;
 	int bit_index;
 	int num_ones;
