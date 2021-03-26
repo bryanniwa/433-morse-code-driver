@@ -8,7 +8,37 @@
 
 #define MY_DEVICE_FILE "morse-code"
 #define DOT 200
-#define DASH DOT*3
+#define DASH 3*DOT
+#define SPACE 7*DOT
+
+static unsigned short morsecode_codes[] = {
+	0xB800, // A 1011 1
+	0xEA80, // B 1110 1010 1
+	0xEBA0, // C 1110 1011 101
+	0xEA00, // D 1110 101
+	0x8000, // E 1
+	0xAE80, // F 1010 1110 1
+	0xEE80, // G 1110 1110 1
+	0xAA00, // H 1010 101
+	0xA000, // I 101
+	0xBBB8, // J 1011 1011 1011 1
+	0xEB80, // K 1110 1011 1
+	0xBA80, // L 1011 1010 1
+	0xEE00, // M 1110 111
+	0xE800, // N 1110 1
+	0xEEE0, // O 1110 1110 111
+	0xBBA0, // P 1011 1011 101
+	0xEEB8, // Q 1110 1110 1011 1
+	0xBA00, // R 1011 101
+	0xA800, // S 1010 1
+	0xE000, // T 111
+	0xAE00, // U 1010 111
+	0xAB80, // V 1010 1011 1
+	0xBB80, // W 1011 1011 1
+	0xEAE0, // X 1110 1010 111
+	0xEBB8, // Y 1110 1011 1011 1
+	0xEEA0	// Z 1110 1110 101
+};
 
 /******************************************************
  * LED
@@ -68,7 +98,7 @@ static int get_end_index(const char* buff, size_t size)
 
 static char get_upper(char c)
 {
-	if (c >= 65 && c <= 90) {
+	if (c >= 'a' && c <= 'z') {
 		return c-32;
 	}
 	return c;
@@ -76,12 +106,48 @@ static char get_upper(char c)
 
 static void output_space(void)
 {
-	printk(KERN_INFO "\n");
+	led_trigger_event(morse_code_trigger, LED_OFF);
+	msleep(SPACE);
+}
+
+static void flash_dot(void)
+{
+	led_trigger_event(morse_code_trigger, LED_FULL);
+	msleep(DOT);
+	led_trigger_event(morse_code_trigger, LED_OFF);
+	msleep(DOT);
+}
+
+static void flash_dash(void)
+{
+	led_trigger_event(morse_code_trigger, LED_FULL);
+	msleep(DASH);
+	led_trigger_event(morse_code_trigger, LED_OFF);
+	msleep(DOT);
 }
 
 static void output_letter(char c)
 {
-	printk(KERN_INFO "%c\n", c);
+	// TODO: prevent extra dot time at the end of a word
+	unsigned short letter_code;
+	int bit_index;
+	int num_ones;
+
+	num_ones = 0;
+	letter_code = morsecode_codes[c-'A'];
+	for (bit_index = 15; bit_index >= 0; bit_index--) {
+		if (letter_code & (1 << bit_index)) {
+			num_ones++;
+		} else {
+			if (num_ones == 1) {
+				flash_dot();
+			} else if (num_ones == 3) {
+				flash_dash();
+			}
+			num_ones = 0;
+		}
+	}
+
 }
 /******************************************************
  * Callbacks
