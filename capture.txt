@@ -1,0 +1,106 @@
+debian@akhamesy-beaglebone:/sys/class/leds/beaglebone:green:usr0$ uname -r
+5.3.7-akhamesy-bone13
+debian@akhamesy-beaglebone:/sys/class/leds/beaglebone:green:usr0$ cat /proc/cmdline
+console=ttyO0,115200n8 root=/dev/mmcblk1p1 ro rootfstype=ext4 rootwait
+debian@akhamesy-beaglebone:/sys/class/leds/beaglebone:green:usr0$ ifconfig
+eth0: flags=-28669<UP,BROADCAST,MULTICAST,DYNAMIC>  mtu 1500
+        ether e4:15:f6:fa:53:78  txqueuelen 1000  (Ethernet)
+        RX packets 0  bytes 0 (0.0 B)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 0  bytes 0 (0.0 B)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
+        inet 127.0.0.1  netmask 255.0.0.0
+        inet6 ::1  prefixlen 128  scopeid 0x10<host>
+        loop  txqueuelen 1000  (Local Loopback)
+        RX packets 279530  bytes 18730868 (17.8 MiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 279530  bytes 18730868 (17.8 MiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+usb0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 192.168.7.2  netmask 255.255.255.252  broadcast 192.168.7.3
+        inet6 fe80::1eba:8cff:fea2:ed70  prefixlen 64  scopeid 0x20<link>
+        ether 1c:ba:8c:a2:ed:70  txqueuelen 1000  (Ethernet)
+        RX packets 4273  bytes 498581 (486.8 KiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 3090  bytes 545476 (532.6 KiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+usb1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 192.168.6.2  netmask 255.255.255.252  broadcast 192.168.6.3
+        inet6 fe80::1eba:8cff:fea2:ed6d  prefixlen 64  scopeid 0x20<link>
+        ether 1c:ba:8c:a2:ed:6d  txqueuelen 1000  (Ethernet)
+        RX packets 40  bytes 4906 (4.7 KiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 49  bytes 6768 (6.6 KiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+debian@akhamesy-beaglebone:/sys/class/leds/beaglebone:green:usr0$ modinfo /mnt/remote/drivers/morsecode.ko
+filename:       /mnt/remote/drivers/morsecode.ko
+license:        GPL
+description:    A driver to convert strings into morse code
+author:         Bryan Niwa & Ali Khamesy
+depends:        
+name:           morsecode
+vermagic:       5.3.7-akhamesy-bone13 preempt mod_unload modversions ARMv7 thumb2 p2v8 
+debian@akhamesy-beaglebone:/sys/class/leds/beaglebone:green:usr0$ sudo insmod /mnt/remote/drivers/morsecode.ko
+debian@akhamesy-beaglebone:/sys/class/leds/beaglebone:green:usr0$ lsmod
+Module                  Size  Used by
+morsecode              16384  0
+evdev                  20480  1
+usb_f_mass_storage     40960  2
+usb_f_acm              20480  2
+u_serial               24576  3 usb_f_acm
+usb_f_ecm              20480  2
+usb_f_rndis            24576  2
+u_ether                24576  2 usb_f_ecm,usb_f_rndis
+libcomposite           45056  16 usb_f_ecm,usb_f_acm,usb_f_mass_storage,usb_f_rndis
+iptable_nat            16384  0
+nf_nat                 28672  1 iptable_nat
+nf_conntrack           98304  1 nf_nat
+nf_defrag_ipv6         20480  1 nf_conntrack
+nf_defrag_ipv4         16384  1 nf_conntrack
+iptable_mangle         16384  0
+iptable_filter         16384  0
+spidev                 20480  0
+ip_tables              24576  3 iptable_mangle,iptable_filter,iptable_nat
+x_tables               24576  3 iptable_mangle,ip_tables,iptable_filter
+debian@akhamesy-beaglebone:/sys/class/leds/beaglebone:green:usr0$ echo morse-code > trigger
+debian@akhamesy-beaglebone:/sys/class/leds/beaglebone:green:usr0$ cat trigger
+none usb-gadget usb-host kbd-scrolllock kbd-numlock kbd-capslock kbd-kanalock kbd-shiftlock kbd-altgrlock kbd-ctrllock kbd-altlock kbd-shiftllock kbd-shiftrlock kbd-ctrlllock kbd-ctrlrlock mmc0 mmc1 timer oneshot disk-activity disk-read disk-write ide-disk mtd nand-disk heartbeat backlight gpio cpu cpu0 activity default-on panic netdev 4a101000.mdio:00:link 4a101000.mdio:00:100Mbps 4a101000.mdio:00:10Mbps [morse-code] 
+debian@akhamesy-beaglebone:/sys/class/leds/beaglebone:green:usr0$ echo 'Hello World.' | sudo tee /dev/morse-code
+Hello World.
+debian@akhamesy-beaglebone:/sys/class/leds/beaglebone:green:usr0$ sudo cat /dev/morse-code
+.... . .-.. .-.. ---   .-- --- .-. .-.. -..
+debian@akhamesy-beaglebone:/sys/class/leds/beaglebone:green:usr0$ sudo rmmod morsecode
+debian@akhamesy-beaglebone:/sys/class/leds/beaglebone:green:usr0$ lsmod
+Module                  Size  Used by
+evdev                  20480  1
+usb_f_mass_storage     40960  2
+usb_f_acm              20480  2
+u_serial               24576  3 usb_f_acm
+usb_f_ecm              20480  2
+usb_f_rndis            24576  2
+u_ether                24576  2 usb_f_ecm,usb_f_rndis
+libcomposite           45056  16 usb_f_ecm,usb_f_acm,usb_f_mass_storage,usb_f_rndis
+iptable_nat            16384  0
+nf_nat                 28672  1 iptable_nat
+nf_conntrack           98304  1 nf_nat
+nf_defrag_ipv6         20480  1 nf_conntrack
+nf_defrag_ipv4         16384  1 nf_conntrack
+iptable_mangle         16384  0
+iptable_filter         16384  0
+spidev                 20480  0
+ip_tables              24576  3 iptable_mangle,iptable_filter,iptable_nat
+x_tables               24576  3 iptable_mangle,ip_tables,iptable_filter
+debian@akhamesy-beaglebone:/sys/class/leds/beaglebone:green:usr0$ dmesg | tail -100
+// many lines removed as requested //
+[52860.135128] ----> morsecode driver init(): file /dev/morse-code.
+[52947.143445] morsecode: [LOOK AT ME] 44
+[52947.147396] morsecode: In my_read() 0 44 
+[52947.157647] morsecode: [LOOK AT ME] 0
+[52947.164458] morsecode: In my_read() 0 0 
+[52977.364312] <---- morsecode driver exit().
+debian@akhamesy-beaglebone:/sys/class/leds/beaglebone:green:usr0$ 
