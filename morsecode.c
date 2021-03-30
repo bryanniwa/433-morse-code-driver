@@ -2,6 +2,7 @@
 #include <linux/miscdevice.h> // for misc-driver calls.
 #include <linux/fs.h>
 #include <linux/delay.h>
+#include <linux/kfifo.h>
 #include <linux/uaccess.h>
 #include <stdbool.h>
 // #error Are we building this?
@@ -39,6 +40,8 @@ static unsigned short morsecode_codes[] = {
 	0xEBB8, // Y 1110 1011 1011 1
 	0xEEA0	// Z 1110 1110 101
 };
+
+static DECLARE_KFIFO(morse_fifo, char, 512);
 
 /******************************************************
  * LED
@@ -142,9 +145,12 @@ static void output_letter(char c)
 		} else {
 			if (num_ones == 1) {
 				flash_dot();
+				kfifo_put(&morse_fifo, '.');
 			} else if (num_ones == 3) {
 				flash_dash();
+				kfifo_put(&morse_fifo, '_');
 			}
+			kfifo_put(&morse_fifo, ' ');
 			num_ones = 0;
 		}
 	}
@@ -156,8 +162,11 @@ static void output_letter(char c)
 static ssize_t my_read(struct file *file,
 					   char *buff, size_t count, loff_t *ppos)
 {
-	printk(KERN_INFO "morsecode: In my_read()\n");
-	return 0; // # bytes actually read.
+	int copied;
+	copied = kfifo_to_user(&morse_fifo, buff, count, &copied);
+	kfifo_reset(&morse_fifo);
+	printk(KERN_INFO "morsecode: In my_read() %d\n", kfifo_len(&morse_fifo));
+	return copied; // # bytes actually read.
 }
 
 static ssize_t my_write(struct file *file,
@@ -171,7 +180,7 @@ static ssize_t my_write(struct file *file,
 	end = get_end_index(buff, count);
 	space_waiting = false;
 
-	for (buff_index; buff_index <= end; buff_index++) {
+	for (; buff_index <= end; buff_index++) {
 		char c;
 		if (copy_from_user(&c, &buff[buff_index], sizeof(c))) {
 			return -EFAULT;
