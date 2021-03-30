@@ -158,7 +158,10 @@ static void output_letter(char c, bool should_break)
 		kfifo_put(&morse_fifo, '-');
 	}
 
-	if(should_break) msleep(DASH);
+	if (should_break) {
+		msleep(DASH);
+		kfifo_put(&morse_fifo, ' ');
+	}
 }
 
 static bool is_invalid(const char c) 
@@ -229,13 +232,11 @@ static ssize_t my_write(struct file *file,
 			output_space();
 			kfifo_put(&morse_fifo, ' ');
 			kfifo_put(&morse_fifo, ' ');
+			kfifo_put(&morse_fifo, ' ');
 			space_waiting = false;
 		}
 
 		output_letter(get_upper(c), next_index <= end && next != ' ');
-		if (buff_index < end) {
-			kfifo_put(&morse_fifo, ' ');
-		}
 	}
 
 	kfifo_put(&morse_fifo, '\n');
