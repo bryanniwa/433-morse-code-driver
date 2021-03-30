@@ -233,7 +233,9 @@ static ssize_t my_write(struct file *file,
 		}
 
 		output_letter(get_upper(c), next_index <= end && next != ' ');
-		kfifo_put(&morse_fifo, ' ');
+		if (buff_index < end) {
+			kfifo_put(&morse_fifo, ' ');
+		}
 	}
 
 	kfifo_put(&morse_fifo, '\n');
