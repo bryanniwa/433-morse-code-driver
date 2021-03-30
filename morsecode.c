@@ -229,7 +229,6 @@ static ssize_t my_write(struct file *file,
 			output_space();
 			kfifo_put(&morse_fifo, ' ');
 			kfifo_put(&morse_fifo, ' ');
-			kfifo_put(&morse_fifo, ' ');
 			space_waiting = false;
 		}
 
