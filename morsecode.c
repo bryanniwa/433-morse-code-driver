@@ -60,18 +60,14 @@ static void led_unregister(void)
 	led_trigger_unregister_simple(morse_code_trigger);
 }
 
-static void flash_dot(void)
+static void dot_on(void)
 {
 	led_trigger_event(morse_code_trigger, LED_FULL);
-	msleep(DOT);
-	led_trigger_event(morse_code_trigger, LED_OFF);
 	msleep(DOT);
 }
 
-static void flash_dash(void)
+static void dot_off(void)
 {
-	led_trigger_event(morse_code_trigger, LED_FULL);
-	msleep(DASH);
 	led_trigger_event(morse_code_trigger, LED_OFF);
 	msleep(DOT);
 }
@@ -129,32 +125,45 @@ static void output_space(void)
 	msleep(SPACE);
 }
 
-static void output_letter(char c)
+static void output_letter(char c, bool should_break)
 {
-	// TODO: prevent extra dot time at the end of a word
-	// TODO: implement break after a character
 	unsigned short letter_code;
 	int bit_index;
 	int num_ones;
 
 	num_ones = 0;
 	letter_code = morsecode_codes[c-'A'];
-	for (bit_index = 15; bit_index >= 0; bit_index--) {
-		if (letter_code & (1 << bit_index)) {
+
+	for (bit_index = 15; bit_index >= 0 && (unsigned short)(letter_code << (15-bit_index)); bit_index--) {
+		if(letter_code & (1 << bit_index)) {
 			num_ones++;
+			dot_on();
 		} else {
-			if (num_ones == 1) {
-				flash_dot();
+			dot_off();
+
+			if(num_ones == 1) {
 				kfifo_put(&morse_fifo, '.');
-			} else if (num_ones == 3) {
-				flash_dash();
+			} else if( num_ones == 3) {
 				kfifo_put(&morse_fifo, '_');
 			}
-			kfifo_put(&morse_fifo, ' ');
 			num_ones = 0;
 		}
 	}
 
+	led_trigger_event(morse_code_trigger, LED_OFF);
+
+	if(num_ones == 1) {
+		kfifo_put(&morse_fifo, '.');
+	} else if( num_ones == 3) {
+		kfifo_put(&morse_fifo, '_');
+	}
+
+	if(should_break) msleep(DASH);
+}
+
+static bool is_invalid(const char c) 
+{
+	return ( (c < 'A' || ( c > 'Z' && c < 'a' ) || (c > 'z')) && c != ' ' );
 }
 /******************************************************
  * Callbacks
@@ -163,9 +172,14 @@ static ssize_t my_read(struct file *file,
 					   char *buff, size_t count, loff_t *ppos)
 {
 	int copied;
-	copied = kfifo_to_user(&morse_fifo, buff, count, &copied);
+	int copied2;
+
+	printk(KERN_INFO "morsecode: [LOOK AT ME] %d\n", kfifo_len(&morse_fifo));
+	copied2 = kfifo_to_user(&morse_fifo, buff, count, &copied);
+
 	kfifo_reset(&morse_fifo);
-	printk(KERN_INFO "morsecode: In my_read() %d\n", kfifo_len(&morse_fifo));
+
+	printk(KERN_INFO "morsecode: In my_read() %d %d \n", copied2, copied);
 	return copied; // # bytes actually read.
 }
 
@@ -182,12 +196,28 @@ static ssize_t my_write(struct file *file,
 
 	for (; buff_index <= end; buff_index++) {
 		char c;
+		int next_index;
+		char next;
 		if (copy_from_user(&c, &buff[buff_index], sizeof(c))) {
 			return -EFAULT;
 		}
-
-		if ((c < 'A' || (c > 'Z' && c < 'a') || (c > 'z')) && c != ' ') {
+		
+		if (is_invalid(c)) {
 			continue;
+		}
+
+		// find the next valid char
+		next_index = buff_index+1;
+		if(buff_index < end) {
+			if (copy_from_user(&next, &buff[next_index], sizeof(char))) {
+				return -EFAULT;
+			}
+			while(next_index <= end && is_invalid(next)) {
+				if (copy_from_user(&next, &buff[next_index], sizeof(char))) {
+					return -EFAULT;
+				}
+				next_index++;
+			}
 		}
 
 		if (c == ' ') {
@@ -197,11 +227,17 @@ static ssize_t my_write(struct file *file,
 
 		if (space_waiting) {
 			output_space();
+			kfifo_put(&morse_fifo, ' ');
+			kfifo_put(&morse_fifo, ' ');
+			kfifo_put(&morse_fifo, ' ');
 			space_waiting = false;
 		}
 
-		output_letter(get_upper(c));
+		output_letter(get_upper(c), next_index <= end && next != ' ');
+		kfifo_put(&morse_fifo, ' ');
 	}
+
+	kfifo_put(&morse_fifo, '\n');
 	// Just return count for now to exit nicely
 	// TODO: make this return the actual number of bytes written
 	return count;
@@ -237,6 +273,7 @@ static int __init my_init(void)
 
 	// Register our LED trigger
 	led_register();
+	INIT_KFIFO(morse_fifo);
 
 	return ret;
 }
