@@ -240,8 +240,7 @@ static ssize_t my_write(struct file *file,
 	}
 
 	kfifo_put(&morse_fifo, '\n');
-	// Just return count for now to exit nicely
-	// TODO: make this return the actual number of bytes written
+	
 	return count;
 }
 
