@@ -144,7 +144,7 @@ static void output_letter(char c, bool should_break)
 			if(num_ones == 1) {
 				kfifo_put(&morse_fifo, '.');
 			} else if( num_ones == 3) {
-				kfifo_put(&morse_fifo, '_');
+				kfifo_put(&morse_fifo, '-');
 			}
 			num_ones = 0;
 		}
@@ -155,7 +155,7 @@ static void output_letter(char c, bool should_break)
 	if(num_ones == 1) {
 		kfifo_put(&morse_fifo, '.');
 	} else if( num_ones == 3) {
-		kfifo_put(&morse_fifo, '_');
+		kfifo_put(&morse_fifo, '-');
 	}
 
 	if(should_break) msleep(DASH);
